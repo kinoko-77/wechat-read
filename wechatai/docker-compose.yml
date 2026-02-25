@@ -1,0 +1,24 @@
+version: '3.9'
+
+services:
+  app:
+    image: cooderl/wewe-rss-sqlite:latest
+    ports:
+      - 4000:4000
+    environment:
+      - DATABASE_TYPE=sqlite
+      - AUTH_TOKEN=123567  # 注意：官方文档通常用 AUTH_TOKEN，如果你之前用 AUTH_CODE 能登进去就保持原样
+      
+      # 1. 设置时区为中国上海（非常重要，否则 9:00 会变成格林威治时间）
+      - TZ=Asia/Shanghai
+      
+      # 2. 设置 Cron 表达式：每天早上 9:00 执行
+      # 格式：分 时 日 月 周
+      - CRON_EXPRESSION=0 9 * * *
+      
+      # 3. 建议保留这个限制，防止请求过快
+      - MAX_REQUEST_PER_MINUTE=60
+      - FEED_MODE=fulltext
+
+    volumes:
+      - ./data:/app/data
