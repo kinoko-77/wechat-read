@@ -1,51 +1,69 @@
 import streamlit as st
 import pymysql
 import pandas as pd
+import time
 
 st.set_page_config(page_title="储能内参 AI 版", layout="wide")
 st.title("⚡ 储能行业公众号 AI 自动简报")
 
+# 数据库配置
+DB_CONFIG = {
+    'host': 'gateway01.ap-southeast-1.prod.aws.tidbcloud.com',
+    'port': 4000,
+    'user': '4UQMmu8pBXHpYPX.root',
+    'password': 'ErrvTvIZ1l1WdQ90',
+    'database': 'test',
+    'charset': 'utf8mb4',
+    'ssl': {'ssl': True},
+    'cursorclass': pymysql.cursors.DictCursor,
+    'connect_timeout': 10,
+    'read_timeout': 30,
+    'write_timeout': 30
+}
 
-# 数据库连接函数
-def get_connection():
-    return pymysql.connect(
-        host='gateway01.ap-southeast-1.prod.aws.tidbcloud.com',
-        port=4000,
-        user='4UQMmu8pBXHpYPX.root',
-        password='ErrvTvIZ1l1WdQ90',
-        database='test',
-        charset='utf8mb4',
-        ssl={'ssl': True},
-        cursorclass=pymysql.cursors.DictCursor
-    )
+
+# 带重试的数据库连接
+def get_connection(max_retries=3):
+    for i in range(max_retries):
+        try:
+            conn = pymysql.connect(**DB_CONFIG)
+            return conn
+        except Exception as e:
+            if i < max_retries - 1:
+                time.sleep(1)
+                continue
+            raise e
 
 
-# 获取数据
+# 获取数据（带缓存）
+@st.cache_data(ttl=60)
 def get_data():
     try:
         conn = get_connection()
-        df = pd.read_sql("SELECT * FROM articles", conn)
+        df = pd.read_sql("SELECT * FROM articles ORDER BY publish_date DESC", conn)
         conn.close()
+        df['id'] = df['id'].astype(int)
         return df
     except Exception as e:
         st.error(f"Database connection failed: {e}")
         return pd.DataFrame()
 
 
-# 更新分类
+# 更新分类（修复整数类型问题）
 def update_category(article_id, new_category):
-    conn = get_connection()
     try:
+        conn = get_connection()
         with conn.cursor() as cursor:
             sql = "UPDATE articles SET category = %s WHERE id = %s"
-            cursor.execute(sql, (new_category, article_id))
+            cursor.execute(sql, (new_category, int(article_id)))
         conn.commit()
+        conn.close()
+        # 清除缓存，强制刷新数据
+        get_data.clear()
         return True
     except Exception as e:
         st.error(f"更新失败: {e}")
         return False
-    finally:
-        conn.close()
 
 
 # 分类选项
@@ -54,10 +72,10 @@ CATEGORIES = ["技术研发与突破", "政策法规与市场交易", "工程项
 
 df = get_data()
 
-# ========== 关键修改：空数据保护 ==========
+# 空数据保护
 if df.empty:
     st.warning("数据库中没有数据，请先添加文章数据")
-    st.stop()  # 停止执行后续代码
+    st.stop()
 
 if 'category' not in df.columns:
     st.error(f"数据表结构不正确，缺少 category 列。当前列: {list(df.columns)}")
