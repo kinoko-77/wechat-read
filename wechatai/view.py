@@ -64,9 +64,6 @@ def get_data():
         # 转换类型
         df['id'] = pd.to_numeric(df['id'], errors='coerce').fillna(0).astype(int)
 
-        # 调试
-        st.write("调试 - 数据行数:", len(df))
-        st.write("调试 - 第一行:", df.iloc[0].to_dict() if not df.empty else "空")
 
         return df
 
