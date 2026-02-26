@@ -3,9 +3,7 @@ import pymysql
 import pandas as pd
 import time
 
-
 st.set_page_config(page_title="储能内参 AI 版", layout="wide")
-
 
 # ========== 数据库配置 ==========
 DB_CONFIG = {
@@ -17,7 +15,7 @@ DB_CONFIG = {
     'charset': 'utf8mb4',
     'ssl': {'ssl': True},
     'cursorclass': pymysql.cursors.DictCursor,
-    'connect_timeout': 30,  # 给足冷启动时间
+    'connect_timeout': 30,
     'read_timeout': 30,
     'write_timeout': 30
 }
@@ -32,7 +30,7 @@ def get_connection(max_retries=3):
             return conn
         except Exception as e:
             if i < max_retries - 1:
-                time.sleep(3)  # 等待 3 秒让数据库唤醒
+                time.sleep(3)
                 continue
             raise e
 
@@ -62,7 +60,7 @@ def get_data():
 
     except Exception as e:
         st.error(f"❌ 数据库连接失败: {e}")
-        st.info("💡 TiDB 免费版可能需要 3-5 秒冷启动，请刷新页面重试")
+        st.info("💡 请刷新页面重试")
         return pd.DataFrame()
 
 
@@ -79,7 +77,6 @@ def update_category(article_id, new_category):
             conn.commit()
             conn.close()
 
-        # 清除缓存，强制刷新数据
         get_data.clear()
         return True
     except Exception as e:
@@ -90,16 +87,6 @@ def update_category(article_id, new_category):
 # ========== 页面内容 ==========
 st.title("⚡ 储能行业公众号 AI 自动简报")
 
-# 手动刷新按钮
-col1, col2 = st.columns([1, 4])
-with col1:
-    if st.button("🔄 刷新数据"):
-        st.cache_data.clear()
-        st.rerun()
-
-with col2:
-    st.caption("💡 如果数据未更新，请点击刷新按钮")
-
 # 分类选项
 CATEGORIES = ["技术研发与突破", "政策法规与市场交易", "工程项目与并网实践",
               "企业动向与产业经济", "基础知识与科普解读", "安全事件与事故处理", "其他"]
@@ -109,7 +96,7 @@ df = get_data()
 
 # 空数据保护
 if df.empty:
-    st.warning("⚠️ 数据库中没有数据，请检查连接或刷新页面")
+    st.warning("⚠️ 数据库中没有数据，请刷新页面重试")
     st.stop()
 
 # 侧边栏筛选
